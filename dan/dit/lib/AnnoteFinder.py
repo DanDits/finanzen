@@ -28,7 +28,6 @@ class AnnoteFinder(object):
             ytol = (ydiff / float(len(ydata))) / 2
         self.xtol = xtol
         self.ytol = ytol
-        print("Tol is ", self.xtol, self.ytol)
 
         self.xDrawOffset = -xdiff * 0.01
         self.yDrawOffset = ydiff * 0.02
@@ -45,9 +44,6 @@ class AnnoteFinder(object):
         """
         return (math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2))
 
-    def xdist(selfself, x1, x2, y1, y2):
-        return abs(x1 - x2)
-
     def __call__(self, event):
 
         if event.inaxes:
@@ -62,7 +58,7 @@ class AnnoteFinder(object):
                     if ((clickX - self.xtol < x < clickX + self.xtol) and
                             (clickY - self.ytol < y < clickY + self.ytol)):
                         annotes.append(
-                            (self.xdist(x, clickX, y, clickY), x, y, a))
+                            (self.distance(x, clickX, y, clickY), x, y, a))
                 if annotes:
                     annotes.sort()
                     distance, x, y, annote = annotes[0]

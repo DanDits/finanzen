@@ -81,6 +81,14 @@ class AnnoteFinder(object):
             self.drawnAnnotations[(x, y)] = (t, m)
             self.ax.figure.canvas.draw_idle()
 
+
+    def clearAnnotations(self):
+        for (x, y) in self.drawnAnnotations:
+            markers = self.drawnAnnotations[(x, y)]
+            for m in markers:
+                m.set_visible(False)
+        self.ax.figure.canvas.draw_idle()
+
     def drawSpecificAnnote(self, annote):
         annotesToDraw = [(x, y, a) for x, y, a in self.data if a == annote]
         for x, y, a in annotesToDraw:

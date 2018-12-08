@@ -1,5 +1,6 @@
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 import dan.dit.pathutil as pathutil
 from dan.dit.lib.AnnoteFinder import AnnoteFinder
@@ -13,14 +14,60 @@ def _set_time_label_format(ax):
     ax.xaxis.set_major_formatter(fmt)
 
 
+def find_data_before_gehalt(umsatz):
+    gehalt_dates = []
+    gehalt_values = []
+    for i in range(len(umsatz.values)):
+        if (len(umsatz.texts[i]) > 0 and "GEHALT" in umsatz.texts[i][0].upper()):
+            # could fail if first entry is a GEHALT but whatever
+            gehalt_dates.append(umsatz.dates[i-1])
+            gehalt_values.append(umsatz.values[i-1])
+    return gehalt_dates, gehalt_values
+
+
 def total_over_time(umsatz):
     dates = mdates.date2num(umsatz.dates)
     values = umsatz.values
     description = umsatz.descriptions
     fig = plt.figure()
 
-    ax = plt.plot_date(dates, values, "-o")
+    plt.plot_date(dates, values, "-o")
     _set_time_label_format(plt.axes())
+    value_format = lambda x: format(int(x), ",")
+    plt.axes().yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: value_format(x)))
+
+    gehalt_dates, gehalt_values = find_data_before_gehalt(umsatz)
+    def format_gain(gain, isTrueGain=True):
+        delta_text = "-+"[gain >= 0] if isTrueGain else ""
+        return delta_text + "{0:,.2f}".format(gain) + umsatz.currency()
+    # plot per-month(aka. when I got the paycheck) data
+    plt.plot(gehalt_dates, gehalt_values, "-x")
+    for d, v, prev in zip(gehalt_dates, gehalt_values, [0] + gehalt_values[:-1]):
+        plt.axes().annotate(format_gain(v - prev, prev != 0),
+                            (mdates.date2num(d), v),
+                            xytext=(15,-15),
+                            textcoords='offset points',
+                            arrowprops=dict(arrowstyle='-|>'))
+
+    # plot gain since first pay-check (aka. average per-month)
+    total_color = [0,0.7,0.6,0.4]
+    total_color_solid = total_color[:]
+    total_color_solid[-1] = 1
+    plt.plot((gehalt_dates[0], gehalt_dates[-1]),
+              (gehalt_values[0], gehalt_values[-1]), "-", color=total_color)
+    total_gain = gehalt_values[-1] - gehalt_values[0]
+    total_gain_formatted = format_gain(total_gain)
+    days = (gehalt_dates[-1] - gehalt_dates[0]).days
+    gain_in_day = "    " + total_gain_formatted + " in " + str(days) + " Tagen"
+    gain_per_year = "≙ " + format_gain(total_gain / days * 365.25) + " pro Jahr"
+    plt.axes().annotate(gain_in_day + "\n" + gain_per_year,
+                        ((mdates.date2num(gehalt_dates[-1]) + mdates.date2num(gehalt_dates[0])) / 2,
+                         (gehalt_values[-1] + gehalt_values[0]) / 2),
+                        xytext=(-100, 100),
+                        textcoords='offset points',
+                        color=total_color_solid,
+                        arrowprops=dict(arrowstyle='-|>', color=total_color))
+
     plt.ylim(ymin=0)
     plt.xlabel(umsatz.date_name())
     plt.ylabel("Betrag in " + umsatz.currency())
@@ -66,7 +113,7 @@ def add_annotes(fig, x, y, annotes):
 def add_clear_annotates(fig, annotate_finder):
     # x, y (fractions), width, height (fractions)
     reset_button_ax = fig.add_axes([0.6, 0.025, 0.4, 0.04])
-    bcut = Button(reset_button_ax, 'Clear annotations', color='green', hovercolor='green')
+    bcut = Button(reset_button_ax, 'Einzelangaben entfernen', color='green', hovercolor='green')
     def _clear(mouse_event):
         if mouse_event.inaxes != reset_button_ax:
             return
@@ -75,12 +122,10 @@ def add_clear_annotates(fig, annotate_finder):
 
 
 if __name__ == "__main__":
-    name = pathutil.umsatz_file("umsatz_2017_01__2017_07.csv")
-    curr_umsatz = read_umsatz(name)
-    name = pathutil.umsatz_file("umsatz_2017_08__2017_09.CSV")
-    curr_umsatz2 = read_umsatz(name)
-    curr_umsatz.merge(curr_umsatz2)
-    name = pathutil.umsatz_file("20170901-20171221-5126525-umsatz.txt")
-    curr_umsatz3 = read_umsatz(name)
-    curr_umsatz.merge(curr_umsatz3)
+    # year 2017
+    curr_umsatz = read_umsatz(pathutil.umsatz_file("umsatz_2017_01__2017_07.csv"))
+    curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("umsatz_2017_08__2017_09.CSV")))
+    curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("20170901-20171221-5126525-umsatz.txt")))
+    # year 2018
+    curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("umsatz_2018_01__2018_12_08_utf8.CSV")))
     total_over_time(curr_umsatz)

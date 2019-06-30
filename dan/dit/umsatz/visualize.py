@@ -18,7 +18,7 @@ def find_data_before_gehalt(umsatz):
     gehalt_dates = []
     gehalt_values = []
     for i in range(len(umsatz.values)):
-        if (len(umsatz.texts[i]) > 0 and "GEHALT" in umsatz.texts[i][0].upper()):
+        if (len(umsatz.texts[i]) > 0 and any("GEHALT" in umsatz.texts[i][j].upper() for j in range(len(umsatz.texts[i])))):
             # could fail if first entry is a GEHALT but whatever
             gehalt_dates.append(umsatz.dates[i-1])
             gehalt_values.append(umsatz.values[i-1])
@@ -60,7 +60,8 @@ def total_over_time(umsatz):
     days = (gehalt_dates[-1] - gehalt_dates[0]).days
     gain_in_day = "    " + total_gain_formatted + " in " + str(days) + " Tagen"
     gain_per_year = "≙ " + format_gain(total_gain / days * 365.25) + " pro Jahr"
-    plt.axes().annotate(gain_in_day + "\n" + gain_per_year,
+    gain_per_day = "≙ " + format_gain(total_gain / days) + " pro Tag"
+    plt.axes().annotate(gain_in_day + "\n" + gain_per_year + "\n" + gain_per_day,
                         ((mdates.date2num(gehalt_dates[-1]) + mdates.date2num(gehalt_dates[0])) / 2,
                          (gehalt_values[-1] + gehalt_values[0]) / 2),
                         xytext=(-100, 100),
@@ -122,10 +123,24 @@ def add_clear_annotates(fig, annotate_finder):
 
 
 if __name__ == "__main__":
-    # year 2017
-    curr_umsatz = read_umsatz(pathutil.umsatz_file("umsatz_2017_01__2017_07.csv"))
-    curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("umsatz_2017_08__2017_09.CSV")))
-    curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("20170901-20171221-5126525-umsatz.txt")))
-    # year 2018
-    curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("umsatz_2018_01__2018_12_08_utf8.CSV")))
-    total_over_time(curr_umsatz)
+    # export as CSV-CAMT (usually iso-8859-1 encoded)
+
+    # to output file encoding file -i input.file
+    # to convert from iso-8859-1 to utf8: iconv -f ISO-8859-1 -t UTF-8//TRANSLIT input.file -o output.file
+
+    if "miriam" in pathutil.umsatz_dir():
+        # Remove first lines that show metadata, remove last lines that show start and end values
+        # Edit last column to have a proper name: Soll/Haben
+        curr_umsatz = read_umsatz(pathutil.umsatz_file("Umsaetze_2018_09_03__2018_12_07_utf8.csv"))
+        curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("Umsaetze_DE96663912000097495203_2019.06.10.csv")))
+        total_over_time(curr_umsatz)
+    else:
+        # year 2017
+        curr_umsatz = read_umsatz(pathutil.umsatz_file("umsatz_2017_01__2017_07.csv"))
+        curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("umsatz_2017_08__2017_09.CSV")))
+        curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("20170901-20171221-5126525-umsatz.txt")))
+        # year 2018
+        curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("umsatz_2018_01__2018_12_08_utf8.CSV")))
+        # year 2019
+        curr_umsatz.merge(read_umsatz(pathutil.umsatz_file("umsatz_2019_01__2019_06_10_utf8.CSV")))
+        total_over_time(curr_umsatz)

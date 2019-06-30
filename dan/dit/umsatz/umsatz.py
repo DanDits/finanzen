@@ -20,6 +20,49 @@ def pretty_date(date):
     return date.strftime(DATE_FORMAT)
 
 
+def parse_buchungstag(row):
+    try:
+        return dt.datetime.strptime(row["Buchungstag"], DATE_FORMAT)
+    except:
+        return dt.datetime.strptime(row["Buchungstag"], "%d.%m.%Y")
+
+
+def parse_value_robust(value_string, soll_haben=None):
+    cleaned_value_string = value_string
+    if "," in value_string and "." in value_string:
+        # we just assume it is a german number then...
+        cleaned_value_string = cleaned_value_string.replace(r".", "")
+    cleaned_value_string = cleaned_value_string.replace(",", ".")
+    value = float(cleaned_value_string)
+    if soll_haben and "S" in soll_haben:
+        return -value
+    return value
+
+
+def guess_delta_key(keys):
+    if "Betrag" in keys:
+        return "Betrag"
+    return "Umsatz"
+
+
+def guess_currency_key(keys):
+    if "Währung" in keys:
+        return "Währung"
+    return "Waehrung"
+
+
+def guess_verwendungszweck_key(keys):
+    if "Verwendungszweck" in keys:
+        return "Verwendungszweck"
+    return 'Vorgang/Verwendungszweck'
+
+
+def guess_empfaenger_key(keys):
+    if "Beguenstigter/Zahlungspflichtiger" in keys:
+        return "Beguenstigter/Zahlungspflichtiger"
+    return 'Empfänger/Zahlungspflichtiger'
+
+
 class Umsatz:
     def __init__(self, data_reader):
         self.dates = []
@@ -27,10 +70,13 @@ class Umsatz:
         self.texts = []
         self.currencies = []
         for row in data_reader:
-            self.dates.append(dt.datetime.strptime(row["Buchungstag"], DATE_FORMAT))
-            self.deltas.append(float(row["Betrag"].replace(",", ".")))
-            self.currencies.append(row["Waehrung"])
-            self.texts.append((row["Buchungstext"], row["Verwendungszweck"], row["Beguenstigter/Zahlungspflichtiger"]))
+            self.dates.append(parse_buchungstag(row))
+            self.deltas.append(parse_value_robust(row[guess_delta_key(row.keys())],
+                                                  row["Soll/Haben"] if "Soll/Haben" in row.keys() else None))
+            self.currencies.append(row[guess_currency_key(row.keys())])
+            self.texts.append((row["Buchungstext"] if "Buchungstext" in row.keys() else "",
+                               row[guess_verwendungszweck_key(row.keys())],
+                               row[guess_empfaenger_key(row.keys())]))
         result = sort_lists_simultaneous_by_first_key(self.dates,
                                                       self.deltas,
                                                       self.texts,

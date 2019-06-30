@@ -1,5 +1,5 @@
 import os
-
+import sys
 
 def project_dir():
     curr_path = os.path.realpath(__file__)
@@ -10,7 +10,11 @@ def project_dir():
 
 
 def umsatz_dir():
-    return os.path.join(project_dir(), "data/umsatz")
+    if sys.argv and len(sys.argv) > 1:
+        given_path = "data/" + sys.argv[1]
+    else:
+        given_path = "data/umsatz"
+    return os.path.join(project_dir(), given_path)
 
 
 def umsatz_file(file_name):
